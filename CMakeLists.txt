@@ -2,17 +2,37 @@ cmake_minimum_required(VERSION 3.4)
 
 option(BUILD_OPUSURL "Build opusurl library" ON)
 
-project(opusfile C)
+option(HUNTER_ENABLED "Enable Hunter package manager" OFF)
 
-if(MSVC)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4267 /wd4244 /wd4090")
+if(HUNTER_ENABLED)
+    include(cmake/HunterGate.cmake)
+    HunterGate(
+        URL "https://github.com/cpp-pm/hunter/archive/v0.23.264.tar.gz"
+        SHA1 "45ab668f0923fc3ace807a34d971e34ce7428dfd"
+    )
 endif()
 
-find_path(OGG_INCLUDE_DIR ogg/ogg.h)
-find_library(OGG_LIBRARY ogg)
 
-find_path(OPUS_INCLUDE_DIR opus.h PATH_SUFFIXES opus)
-find_library(OPUS_LIBRARY opus)
+project(opusfile VERSION 0.12 LANGUAGES C)
+
+if(HUNTER_ENABLED)
+    hunter_add_package(libogg)
+    find_package(libogg CONFIG REQUIRED)
+    set(OGG_LIBRARY libogg::ogg)
+    get_target_property(OGG_INCLUDE_DIR libogg::ogg INTERFACE_INCLUDE_DIRECTORIES)
+
+    hunter_add_package(Opus)
+    find_package(Opus CONFIG REQUIRED)
+    set(OPUS_LIBRARY Opus::opus)
+    get_target_property(OPUS_INCLUDE_DIR Opus::opus INTERFACE_INCLUDE_DIRECTORIES)
+    set(OPUS_INCLUDE_DIR ${OPUS_INCLUDE_DIR} ${OPUS_INCLUDE_DIR}/opus)
+else()
+    find_path(OGG_INCLUDE_DIR ogg/ogg.h)
+    find_library(OGG_LIBRARY ogg)
+
+    find_path(OPUS_INCLUDE_DIR opus.h PATH_SUFFIXES opus)
+    find_library(OPUS_LIBRARY opus)
+endif()
 
 add_library(opusfile
     src/info.c
@@ -20,15 +40,20 @@ add_library(opusfile
     src/opusfile.c
     src/stream.c)
 
+if(MSVC)
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4267 /wd4244 /wd4090")
+endif()
+
 target_include_directories(opusfile PRIVATE include PUBLIC ${OGG_INCLUDE_DIR} ${OPUS_INCLUDE_DIR})
 target_link_libraries(opusfile PRIVATE ${OGG_LIBRARY} ${OPUS_LIBRARY})
 
-install(TARGETS opusfile
-    RUNTIME DESTINATION bin
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib)
+set(INSTALL_TARGETS opusfile)
 
 if(BUILD_OPUSURL)
+    if(HUNTER_ENABLED)
+        hunter_add_package(OpenSSL)
+    endif()
+
     find_package(OpenSSL MODULE REQUIRED)
 
     set(opusurl_src
@@ -50,11 +75,50 @@ if(BUILD_OPUSURL)
     target_link_libraries(opusurl PRIVATE ws2_32.lib crypt32.lib)
     endif()
 
-    install(TARGETS opusurl
-        RUNTIME DESTINATION bin
-        LIBRARY DESTINATION lib
-        ARCHIVE DESTINATION lib)
+    list(APPEND INSTALL_TARGETS opusurl)
 endif()
 
-install(FILES include/opusfile.h
-    DESTINATION include/opus)
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
+set(config_install_dir "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
+set(generated_dir "${CMAKE_CURRENT_BINARY_DIR}/generated")
+set(version_config "${generated_dir}/${PROJECT_NAME}ConfigVersion.cmake")
+set(project_config "${generated_dir}/${PROJECT_NAME}Config.cmake")
+set(targets_export_name "${PROJECT_NAME}Targets")
+set(namespace "${PROJECT_NAME}::")
+
+install(TARGETS ${INSTALL_TARGETS}
+    EXPORT "${targets_export_name}"
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    FRAMEWORK DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+install(
+    FILES ${CMAKE_SOURCE_DIR}/include/opusfile.h
+    DESTINATION ${CMAKE_INSTALL_FULL_INCLUDEDIR}/opus
+)
+
+write_basic_package_version_file(
+    "${version_config}" COMPATIBILITY SameMajorVersion
+)
+
+configure_package_config_file(
+    "cmake/template/Config.cmake.in"
+    "${project_config}"
+    INSTALL_DESTINATION "${config_install_dir}"
+)
+
+install(
+    FILES "${project_config}" "${version_config}"
+    DESTINATION "${config_install_dir}"
+)
+
+install(
+    EXPORT "${targets_export_name}"
+    NAMESPACE "${namespace}"
+    DESTINATION "${config_install_dir}"
+)

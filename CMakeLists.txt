@@ -68,6 +68,10 @@ if(BUILD_OPUSURL)
     add_library(opusurl ${opusurl_src})
 
     target_compile_definitions(opusurl PRIVATE OP_ENABLE_HTTP)
+    if(ANDROID)
+        target_compile_definitions(opusurl PRIVATE OP_HAVE_CLOCK_GETTIME)
+    endif()
+
     target_include_directories(opusurl PRIVATE include)
     target_link_libraries(opusurl PRIVATE opusfile OpenSSL::SSL)
 

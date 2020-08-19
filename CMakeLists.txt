@@ -7,8 +7,8 @@ option(HUNTER_ENABLED "Enable Hunter package manager" OFF)
 if(HUNTER_ENABLED)
     include(cmake/HunterGate.cmake)
     HunterGate(
-        URL "https://github.com/cpp-pm/hunter/archive/v0.23.264.tar.gz"
-        SHA1 "45ab668f0923fc3ace807a34d971e34ce7428dfd"
+        URL "https://github.com/cpp-pm/hunter/archive/v0.23.265.tar.gz"
+        SHA1 "eae0bb5b7b8aa968e0ff87ec51be51b4255db110"
     )
 endif()
 

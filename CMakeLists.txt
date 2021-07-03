@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.4)
 
-option(BUILD_OPUSURL "Build opusurl library" ON)
+option(BUILD_OPUSURL "Build opusurl library" OFF)
 
 option(HUNTER_ENABLED "Enable Hunter package manager" OFF)
 
